@@ -1,6 +1,6 @@
 // content/fasih-context.js
 // Berjalan di context https://fasih-sm.bps.go.id/app/*
-// Merekam konteks halaman, XSRF token, serta menyerap filter aktif dari fasih-interceptor.
+// Merekam konteks halaman, XSRF token, serta menyerap filter aktif dari fasih-interceptor secara otomatis.
 
 (function () {
   function parseDataUrl(url) {
@@ -51,16 +51,6 @@
         chrome.storage.local.set({ fasihActiveFilter: payload });
         chrome.runtime.sendMessage({ type: 'FASIH_FILTER_UPDATED', payload });
       } catch (_) {}
-    }
-  });
-
-  // Dengarkan pesan dari sidepanel untuk memicu reload tabel jika filter belum tertangkap
-  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg && msg.type === 'FASIH_TRIGGER_TABLE_RELOAD') {
-      window.dispatchEvent(new CustomEvent('FASIH_REQUEST_REFRESH_FILTER'));
-      report();
-      sendResponse({ ok: true });
-      return true;
     }
   });
 

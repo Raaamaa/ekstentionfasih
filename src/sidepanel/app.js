@@ -56,11 +56,11 @@ async function refreshFilterUI() {
     badge.textContent = '● Filter Web Terdeteksi';
     badge.className = 'pill on';
     const totalHit = filter.totalHit ?? '-';
-    info.innerHTML = `✓ <b>Tersinkron:</b> Periode <code>${filter.extraParam.surveyPeriodId.slice(0, 8)}…</code> | Total baris di Web: <b>${totalHit}</b><br><span style="color:#1c7a2e;">Siap cek data target atau jalankan auto-approve.</span>`;
+    info.innerHTML = `✓ <b>Tersinkron:</b> Periode <code>${filter.extraParam.surveyPeriodId.slice(0, 8)}…</code> | Total baris di Web: <b>${totalHit}</b><br><span style="color:#1c7a2e;">Siap untuk pengujian atau eksekusi auto-approve.</span>`;
   } else {
     badge.textContent = '● Menunggu filter Web...';
     badge.className = 'pill off';
-    info.innerHTML = 'Buka halaman <b>Data</b> di tab Web Fasih lalu pilih filter wilayah/status. Ekstensi akan otomatis menyerap filter tanpa perlu ketik nomor SLS manual.';
+    info.innerHTML = 'Buka halaman <b>Data</b> di tab Web Fasih lalu pilih filter wilayah/status. Ekstensi otomatis menyerap filter tanpa perlu ketik nomor SLS manual.';
   }
   return filter;
 }
@@ -75,7 +75,7 @@ async function refreshStatus() {
   } else if (ctx && ctx.page === 'detail') {
     pill.textContent = '● halaman detail';
     pill.className = 'pill on';
-    $('ctx').textContent = `detail ${ctx.assignmentId ?? ''} — buka halaman Data untuk list & filter.`;
+    $('ctx').textContent = `detail ${ctx.assignmentId ?? ''} — buka halaman Data untuk filter & list.`;
   } else {
     pill.textContent = '● belum terhubung';
     pill.className = 'pill off';
@@ -84,24 +84,6 @@ async function refreshStatus() {
   await refreshFilterUI();
   return ctx;
 }
-
-// Tombol 🔄 Refresh Filter dari tab Web
-$('btnSyncFilter').addEventListener('click', async () => {
-  log('Meminta sinkronisasi filter dari tab Web Fasih…');
-  try {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs && tabs[0] && tabs[0].id) {
-      await chrome.tabs.sendMessage(tabs[0].id, { type: 'FASIH_TRIGGER_TABLE_RELOAD' }).catch(() => {});
-    }
-  } catch (_) {}
-  await humanDelay(600, 900);
-  const f = await refreshFilterUI();
-  if (f && f.extraParam) {
-    log(`Filter tersinkron: totalHit=${f.totalHit ?? 0}`);
-  } else {
-    log('Belum mendeteksi request filter baru. Di tab Web Fasih, silakan klik tombol "Cari" atau ubah dropdown filter.');
-  }
-});
 
 // Tombol 🔍 Cek Data Target
 $('btnCheckData').addEventListener('click', async () => {
@@ -112,7 +94,7 @@ $('btnCheckData').addEventListener('click', async () => {
 
     const activeFilter = await getActiveFilter();
     if (!activeFilter || !activeFilter.extraParam) {
-      log('Filter Web belum terdeteksi. Silakan ubah filter atau klik Cari di Web Fasih.');
+      log('Filter Web belum terdeteksi. Silakan pilih filter di Web Fasih.');
       return;
     }
 
@@ -159,13 +141,94 @@ $('btnCheckData').addEventListener('click', async () => {
     }
     await appendLog({ action: 'check', status: 'ok', detail: `total=${total} sampleEdited=${countEdited}`, url: ctx.url });
     setProgress(0, total, 'hasil cek data target');
-    log(`Cek selesai: totalHit=${total}. Siap diproses.`);
+    log(`Cek selesai: totalHit=${total}. Siap untuk pengujian atau eksekusi.`);
   } catch (e) {
     log(`GAGAL CEK DATA: ${e.message}`);
   }
 });
 
-// Engine Auto-Approve (Edited ➔ Completed)
+// Fitur Eksklusif: Uji Coba 1 Data Pertama (Edited ➔ Completed)
+async function runTestSingle() {
+  if (running) { log('Pekerjaan lain sedang berjalan. Harap tunggu atau klik Berhenti.'); return; }
+  const ctx = await refreshStatus();
+  if (!ctx || ctx.page !== 'data') { log('Buka halaman /data Fasih dulu di tab browser.'); return; }
+  if (!ctx.xsrfToken) { log('XSRF token kosong — reload halaman Fasih.'); return; }
+
+  const activeFilter = await getActiveFilter();
+  if (!activeFilter || !activeFilter.extraParam) {
+    log('Filter Web belum terdeteksi. Silakan terapkan filter di Web Fasih.');
+    return;
+  }
+
+  const dryRun = $('dryRun').checked;
+  const onlyEdited = $('onlyEdited').checked;
+  const includeRevoked = $('includeRevoked').checked;
+  const searchValue = $('search').value.trim();
+
+  log('🧪 Mencari 1 data pertama yang berstatus "Edited by Admin"…');
+  let start = 0;
+  const totalHit = activeFilter.totalHit || 100;
+  let targetRow = null;
+
+  try {
+    running = true;
+    while (start < totalHit) {
+      const body = buildListBodyFromActiveFilter({
+        assignmentExtraParam: activeFilter.extraParam,
+        start,
+        length: PAGE_LEN,
+        searchValue,
+      });
+
+      const list = await withRetry(() => listAssignments(body, ctx.xsrfToken));
+      const rows = list.searchData ?? [];
+      if (!rows.length) break;
+
+      for (const row of rows) {
+        const gate = shouldApproveRow(row, { includeRevoked, onlyEdited });
+        if (gate.ok) {
+          targetRow = row;
+          break;
+        }
+      }
+
+      if (targetRow) break;
+      start += PAGE_LEN;
+    }
+
+    if (!targetRow) {
+      log('Tidak ditemukan data berstatus "Edited by Admin Kabupaten" pada filter web saat ini.');
+      return;
+    }
+
+    const id = targetRow.id;
+    const label = targetRow.codeIdentity ?? id;
+    const alias = targetRow.assignmentStatusAlias ?? targetRow.assignmentStatusId ?? 'Edited';
+    const subjek = targetRow.data1 ?? targetRow.data2 ?? '-';
+
+    const ok = confirm(`🧪 Uji Coba Approve 1 Data:\n\nKode: ${label}\nNama/Usaha: ${subjek}\nStatus Saat Ini: ${alias}\nStatus Tujuan: Completed by Admin Kabupaten\nDry-run (simulasi): ${dryRun ? 'YA' : 'TIDAK (EKSEKUSI NYATA)'}\n\nJalankan tes untuk 1 data ini?`);
+    if (!ok) { log('Uji coba 1 data dibatalkan.'); return; }
+
+    if (dryRun) {
+      log(`[dry-run] 🧪 Simulasi sukses: Data ${label} (${subjek}) siap di-approve ke Completed.`);
+      log('💡 Catatan: Hilangkan centang "Dry-run" lalu klik tombol ini lagi jika ingin mengeksekusi secara nyata.');
+    } else {
+      log(`Mengirim request approval untuk 1 data: ${label}…`);
+      const res = await withRetry(() => approveOne(id, ctx.xsrfToken));
+      if (res?.success === false) throw new Error(res.message || 'SERVER_REJECTED');
+
+      await appendLog({ action: 'test_single', status: 'approved', detail: `${label} (${alias} ➔ Completed)`, url: ctx.url });
+      log(`🎉 [✓ BERHASIL TES 1 DATA] ${label} (${subjek}) telah di-approve!`);
+      log(`👉 Silakan buka tab Web Fasih dan refresh tabel data untuk verifikasi statusnya telah menjadi "Completed by Admin Kabupaten".`);
+    }
+  } catch (e) {
+    log(`✗ GAGAL TES 1 DATA: ${e.message}`);
+  } finally {
+    running = false;
+  }
+}
+
+// Engine Auto-Approve Massal (Edited ➔ Completed)
 async function runApprove({ resume = false } = {}) {
   if (running) { log('Pekerjaan sedang berjalan.'); return; }
   const ctx = await refreshStatus();
@@ -195,7 +258,6 @@ async function runApprove({ resume = false } = {}) {
       return;
     }
 
-    // Probe total data
     const probeBody = buildListBodyFromActiveFilter({
       assignmentExtraParam: activeFilter.extraParam,
       start: 0,
@@ -396,6 +458,7 @@ async function runApprove({ resume = false } = {}) {
 }
 
 // Navigasi & Event Listeners
+$('btnTestSingle').addEventListener('click', runTestSingle);
 $('btnApprove').addEventListener('click', () => runApprove({ resume: false }));
 $('btnResume').addEventListener('click', async () => {
   const saved = await getStore(['fasihCheckpoint']);

@@ -18,12 +18,11 @@
   <section class="card">
     <h2><span class="step">1</span>Filter Web Fasih (Otomatis)</h2>
     <div id="filterCard" class="filter-card">
-      <div class="row" style="margin: 0 0 6px 0; justify-content: space-between; align-items: center;">
+      <div style="margin-bottom: 6px;">
         <span id="filterBadge" class="pill off">● Menunggu filter Web...</span>
-        <button id="btnSyncFilter" class="ghost small">🔄 Refresh Filter</button>
       </div>
       <div id="filterInfo" class="small muted">
-        Buka halaman <b>Data</b> di tab Web Fasih lalu pilih filter wilayah/status. Ekstensi akan otomatis menyerap filter tersebut tanpa perlu ketik nomor SLS manual.
+        Buka halaman <b>Data</b> di tab Web Fasih lalu pilih filter wilayah/status. Ekstensi akan otomatis menyerap filter tersebut secara pasif tanpa perlu ketik nomor SLS manual.
       </div>
     </div>
     <label>Search nama (opsional) <input id="search" placeholder="Cari nama tertentu jika ada..." /></label>
@@ -44,8 +43,17 @@
       <label>Jeda (ms)<input id="delayMs" type="number" value="1500" min="500" max="10000" /></label>
       <label>Batas batch<input id="batchLimit" type="number" placeholder="semua" min="1" /></label>
     </div>
-    <div class="row">
-      <button id="btnApprove" class="primary">▶ Jalankan Auto-Approve</button>
+
+    <!-- Tombol Uji Coba 1 Data Terlebih Dahulu -->
+    <div style="margin: 12px 0 6px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+      <div style="font-weight: 600; font-size: 12.5px; margin-bottom: 4px; color: #166534;">Uji Coba Tunggal (Rekomendasi Sebelum Massal):</div>
+      <p class="hint" style="margin: 0 0 8px; color: #15803d;">Mencari & mengeksekusi <b>tepat 1 data pertama</b> yang berstatus "Edited by Admin" untuk memastikan hasil di Web Fasih.</p>
+      <button id="btnTestSingle" class="ghost" style="width: 100%; border-color: #86efac; color: #166534; font-weight: 700;">🧪 Tes Approve 1 Data</button>
+    </div>
+
+    <!-- Tombol Eksekusi Massal -->
+    <div class="row" style="margin-top: 10px;">
+      <button id="btnApprove" class="primary">▶ Jalankan Auto-Approve (Semua)</button>
     </div>
     <div class="row">
       <button id="btnPause" class="ghost">⏸ Jeda</button>

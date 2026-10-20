@@ -1,6 +1,6 @@
 // content/fasih-interceptor.js
 // Berjalan di MAIN world halaman https://fasih-sm.bps.go.id/app/*
-// Mencegat request DataTables Web Fasih untuk mendeteksi filter wilayah & status aktif secara otomatis.
+// Mencegat request DataTables Web Fasih untuk mendeteksi filter wilayah & status aktif secara pasif dan otomatis.
 
 (function () {
   if (window.__FASIH_INTERCEPTOR_ACTIVE__) return;
@@ -26,13 +26,15 @@
     const res = await origFetch.apply(this, args);
     try {
       const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
-      if (url.includes('/datatable-all-user-survey-periode')) {
+      // Pastikan hanya menangkap datatable utama, bukan endpoint aggregasi
+      if (url.includes('/datatable-all-user-survey-periode') && !url.includes('-aggregation')) {
         const init = args[1] || {};
         if (init.body && typeof init.body === 'string') {
           const parsed = JSON.parse(init.body);
           if (parsed && parsed.assignmentExtraParam) {
             res.clone().json().then((json) => {
-              notifyFilter(parsed.assignmentExtraParam, parsed.search, json.totalHit || json.recordsTotal || 0, {
+              const total = json.totalHit ?? json.recordsTotal ?? json.recordsFiltered ?? 0;
+              notifyFilter(parsed.assignmentExtraParam, parsed.search, total, {
                 recordsFiltered: json.recordsFiltered,
               });
             }).catch(() => {
@@ -56,7 +58,7 @@
   };
 
   XMLHttpRequest.prototype.send = function (body) {
-    if (this._fasihUrl && this._fasihUrl.includes('/datatable-all-user-survey-periode')) {
+    if (this._fasihUrl && this._fasihUrl.includes('/datatable-all-user-survey-periode') && !this._fasihUrl.includes('-aggregation')) {
       try {
         if (body && typeof body === 'string') {
           const parsed = JSON.parse(body);
@@ -64,7 +66,8 @@
             this.addEventListener('load', function () {
               try {
                 const json = JSON.parse(this.responseText);
-                notifyFilter(parsed.assignmentExtraParam, parsed.search, json.totalHit || json.recordsTotal || 0, {
+                const total = json.totalHit ?? json.recordsTotal ?? json.recordsFiltered ?? 0;
+                notifyFilter(parsed.assignmentExtraParam, parsed.search, total, {
                   recordsFiltered: json.recordsFiltered,
                 });
               } catch (_) {
@@ -77,17 +80,4 @@
     }
     return origSend.apply(this, [body]);
   };
-
-  // Dengarkan sinyal refresh dari extension content script
-  window.addEventListener('FASIH_REQUEST_REFRESH_FILTER', () => {
-    try {
-      // Jika halaman menggunakan jQuery DataTables, reload agar request terpancing
-      if (window.$ && typeof window.$.fn?.DataTable === 'function') {
-        const dt = window.$('.dataTable').DataTable();
-        if (dt && typeof dt.ajax?.reload === 'function') {
-          dt.ajax.reload(null, false);
-        }
-      }
-    } catch (_) {}
-  });
 })();

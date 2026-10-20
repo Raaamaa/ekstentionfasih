@@ -9,10 +9,11 @@ Mengubah status dokumen dari **`Edited by Admin Kabupaten`** menjadi **`Complete
 ## Fitur Utama
 
 - **Zero-Manual Input (Otomatis Penuh)**: Menangkap parameter filter wilayah dan kriteria status secara otomatis dari tab aktif Web Fasih BPS. Tidak perlu mengetik nomor SLS atau Group ID.
-- **State Transition Guard**: Dirancang khusus memproses transisi `Edited by Admin Kabupaten` ➔ `Completed by Admin Kabupaten`.
+- **Uji Coba Tunggal ("🧪 Tes 1 Data")**: Tombol pengujian mandiri untuk memproses tepat 1 kuesioner pertama yang berstatus *Edited by Admin*, sehingga pengguna dapat memverifikasi keberhasilan status di Web Fasih sebelum menjalankan approve massal.
+- **State Transition Guard**: Dirancang khusus memproses transisi `Edited by Admin Kabupaten` ➔ `Completed by Admin Kabupaten`. Data yang sudah `Completed` otomatis dilewati (*skip* aman).
 - **Anti-Bot Protection (Human Rhythm)**:
   - Default pacing jeda 1500ms dengan *dynamic jitter* (fluktuasi waktu acak).
-  - Jeda istirahat berkala (*cooldown pause*) setiap 12–15 data untuk meniru ritme kerja manusia.
+  - Jeda istirahat berkala (*cooldown pause*) setiap 12 data untuk meniru ritme kerja manusia.
   - Penanganan adaptif HTTP 429 yang mematuhi header `Retry-After` dari server BPS.
 - **Integritas & Checkpoint Resume**: Progres tersimpan secara real-time di `chrome.storage.local`. Jika koneksi terputus atau sesi login habis, dapat dilanjutkan kembali kapan saja melalui tombol **Resume**.
 - **Mode Dry-Run (Simulasi)**: Uji coba aman untuk memverifikasi daftar data sebelum melakukan eksekusi live ke server.
@@ -39,8 +40,7 @@ Mengubah status dokumen dari **`Edited by Admin Kabupaten`** menjadi **`Complete
 1. Buka tab Web Fasih di browser Anda: `https://fasih-sm.bps.go.id/app/surveys/.../data`.
 2. Gunakan filter bawaan Web Fasih (wilayah dan filter status untuk data yang ingin di-approve).
 3. Buka **Side Panel** ekstensi:
-   - Indikator di Langkah 1 akan otomatis berubah hijau: **`● Filter Web Terdeteksi`**.
+   - Indikator di Langkah 1 akan otomatis menyerap filter: **`● Filter Web Terdeteksi`**.
 4. Klik tombol **`🔍 Cek Data Target`** untuk melihat sampel kuesioner yang terdeteksi.
-5. (Opsional) Uji simulasi terlebih dahulu dengan membiarkan centang **Dry-run**.
-6. Hilangkan centang **Dry-run**, lalu klik **`▶ Jalankan Auto-Approve`**.
-7. Data akan diproses satu per satu dari `Edited` ke `Completed` dengan aman.
+5. **(Rekomendasi)** Klik tombol **`🧪 Tes Approve 1 Data`** untuk memproses tepat 1 data terlebih dahulu. Buka tab Web Fasih dan refresh tabel untuk memastikan statusnya telah menjadi *Completed by Admin Kabupaten*.
+6. Jika sudah puas dengan hasil uji coba 1 data, klik tombol **`▶ Jalankan Auto-Approve (Semua)`** untuk memproses seluruh antrean secara massal.
