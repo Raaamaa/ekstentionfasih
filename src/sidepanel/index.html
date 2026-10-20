@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fasih Approval SE2026 by AdnanPW</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <strong>Fasih Approval</strong> <span class="credit">by AdnanPW</span>
+      <div id="ctx" class="muted small">Buka halaman Data Fasih di tab aktif.</div>
+    </div>
+    <span id="conn" class="pill off">● belum terhubung</span>
+  </header>
+
+  <section class="card">
+    <h2><span class="step">1</span>Wilayah</h2>
+    <label>Group ID <input id="groupId" value="a45adac1-e711-4c15-b3f9-1f30fc151565" spellcheck="false" /></label>
+    <label>Kode SubSLS / Level 6* <input id="l6" placeholder="3328170008000100" spellcheck="false" /></label>
+    <p class="hint">L1 s/d L5 dikenali otomatis dari kode L6.</p>
+    <label>Search nama (opsional) <input id="search" placeholder="SUMARSO" /></label>
+    <div class="row">
+      <button id="btnResolve" class="primary">Cek Data</button>
+      <button id="btnPresetSave" class="ghost">Simpan preset</button>
+    </div>
+    <div id="agg" class="muted small"></div>
+    <p id="summary" class="muted">Belum ada query.</p>
+    <ol id="rows"></ol>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span>Daftar Target (Excel)</h2>
+    <p class="hint"><a href="../template/reject-template.xlsx" download>Unduh template</a> — hapus baris contoh sebelum dipakai. Kolom kode format <b>Text</b>.</p>
+    <input type="file" id="excelFile" accept=".xlsx,.xls" />
+    <div class="row">
+      <button id="btnPreview" class="ghost">Pratinjau</button>
+    </div>
+    <p id="csvInfo" class="muted"></p>
+    <div class="row">
+      <button id="btnReject" class="primary">▶ Reject</button>
+      <button id="btnRevoke" class="ghost">↩ Revoke</button>
+    </div>
+    <label class="check"><input type="checkbox" id="dryRunReject" checked /> Dry-run (uji tanpa eksekusi)</label>
+    <p class="hint">Revoke khusus baris yg sudah APPROVED. Jeda/Berhenti/Resume ada di langkah 3.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span>Proses &amp; Opsi</h2>
+    <label class="check"><input type="checkbox" id="dryRun" checked /> Dry-run (uji tanpa eksekusi)</label>
+    <label class="check"><input type="checkbox" id="includeRevoked" /> Termasuk REVOKED BY Pengawas</label>
+    <div class="grid">
+      <label>Jeda (ms)<input id="delayMs" type="number" value="1200" min="300" max="5000" /></label>
+      <label>Batas batch<input id="batchLimit" type="number" placeholder="semua" min="1" /></label>
+    </div>
+    <div class="row">
+      <button id="btnApprove" class="primary">▶ Approve semua</button>
+    </div>
+    <div class="row">
+      <button id="btnPause" class="ghost">⏸ Jeda</button>
+      <button id="btnStop" class="ghost">⏹ Berhenti</button>
+      <button id="btnResume" class="ghost">↻ Resume</button>
+    </div>
+    <progress id="bar" value="0" max="100"></progress>
+    <p id="progress" class="muted">Siap. Isi langkah 1 lalu mulai.</p>
+    <div class="row">
+      <button id="btnExport" class="ghost">⬇ Ekspor log CSV</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2><span class="step">4</span>Log</h2>
+      <div class="row" style="margin:0">
+        <button id="btnCopyLog" class="ghost small">📋 Salin</button>
+        <button id="btnClearLog" class="ghost small">🧹 Bersihkan</button>
+      </div>
+    </div>
+    <pre id="log"></pre>
+  </section>
+
+  <footer class="muted">Fasih Approval • by AdnanPW</footer>
+
+  <script src="../lib/vendor/xlsx.full.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
