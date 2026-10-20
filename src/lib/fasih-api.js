@@ -133,6 +133,24 @@ export function buildListBody({ regionIds, surveyPeriodId, start = 0, length = 1
   };
 }
 
+export function buildListBodyFromActiveFilter({ assignmentExtraParam, start = 0, length = 10, searchValue = '' }) {
+  if (!assignmentExtraParam || !assignmentExtraParam.surveyPeriodId) {
+    throw new Error('FILTER_ACTIVE_MISSING: Filter Web Fasih belum terdeteksi. Buka halaman Data Fasih dan pilih filter wilayah/status.');
+  }
+  return {
+    start,
+    length,
+    columns: LIST_COLUMNS.map((data) => ({ data })),
+    order: [],
+    search: { value: searchValue, regex: false },
+    assignmentExtraParam: {
+      ...assignmentExtraParam,
+      assignmentErrorStatusType: assignmentExtraParam.assignmentErrorStatusType ?? -1,
+      filterTargetType: assignmentExtraParam.filterTargetType ?? 'TARGET_ONLY',
+    },
+  };
+}
+
 export const pageToStart = (page, length) => (page - 1) * length;
 
 export async function listAssignments(body, xsrf) {
@@ -164,13 +182,20 @@ export async function revokeOne(assignmentId, xsrf) {
   return fasihFetch(REVOKE_PATH, { xsrf, init: { method: 'POST', body: JSON.stringify({ assignmentId, statusApproval: 'false', comment: FIXED_COMMENT }) } });
 }
 
-// Gate M2: hanya SUBMITTED yang auto-approve. REVOKED opsional (perlu centang).
-// APPROVED/REJECTED selalu skip. Status tak dikenal → skip aman.
-export function shouldApproveRow(row, { includeRevoked = false } = {}) {
+// Gate Approval:
+// - Status COMPLETED (Completed by Admin Kabupaten) -> Sudah selesai -> SKIP (ALREADY_COMPLETED).
+// - Status APPROVED / REJECTED -> SKIP.
+// - Status EDITED (Edited by Admin Kabupaten) -> Target utama approval admin -> OK.
+// - Status SUBMITTED -> Target approval standar (jika onlyEdited = false) -> OK.
+// - Status REVOKED -> Perlu opt-in includeRevoked.
+export function shouldApproveRow(row, { includeRevoked = false, onlyEdited = true } = {}) {
   const alias = String(row?.assignmentStatusAlias ?? row?.assignmentStatusId ?? '').toUpperCase();
+  if (alias.includes('COMPLETED')) return { ok: false, reason: 'ALREADY_COMPLETED' };
   if (alias.includes('APPROVED')) return { ok: false, reason: 'ALREADY_APPROVED' };
   if (alias.includes('REJECTED')) return { ok: false, reason: 'ALREADY_REJECTED' };
-  if (alias.includes('SUBMITTED')) return { ok: true, reason: 'SUBMITTED' };
+
+  if (alias.includes('EDITED')) return { ok: true, reason: 'EDITED_BY_ADMIN' };
+  if (!onlyEdited && alias.includes('SUBMITTED')) return { ok: true, reason: 'SUBMITTED' };
   if (alias.includes('REVOKED')) {
     return includeRevoked ? { ok: true, reason: 'REVOKED_INCLUDED' } : { ok: false, reason: 'REVOKED_NEEDS_OPTIN' };
   }

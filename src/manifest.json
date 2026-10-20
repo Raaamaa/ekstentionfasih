@@ -1,11 +1,21 @@
 {
   "action": {
-    "default_title": "Fasih Approval by AdnanPW"
+    "default_title": "Fasih Auto-Approval by AdnanPW"
   },
   "background": {
     "service_worker": "background/service-worker.js"
   },
   "content_scripts": [
+    {
+      "js": [
+        "content/fasih-interceptor.js"
+      ],
+      "matches": [
+        "https://fasih-sm.bps.go.id/app/*"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "js": [
         "content/fasih-context.js"
@@ -16,13 +26,23 @@
       "run_at": "document_idle"
     }
   ],
-  "description": "Panel approve/reject Fasih SE2026 \u00e2\u20ac\u201d M1 read-only (XHR-first, dry-run).",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/fasih-interceptor.js"
+      ],
+      "matches": [
+        "https://fasih-sm.bps.go.id/*"
+      ]
+    }
+  ],
+  "description": "Panel Auto-Approval Fasih SE2026: Mengubah 'Edited by Admin' menjadi 'Completed' secara otomatis dari filter web aktif.",
   "host_permissions": [
     "https://fasih-sm.bps.go.id/*"
   ],
   "manifest_version": 3,
   "minimum_chrome_version": "114",
-  "name": "Fasih Approval SE2026 by AdnanPW",
+  "name": "Fasih Auto-Approval SE2026 by AdnanPW",
   "permissions": [
     "sidePanel",
     "storage",
@@ -33,5 +53,5 @@
   "side_panel": {
     "default_path": "sidepanel/index.html"
   },
-  "version": "0.8.2"
+  "version": "1.0.0"
 }

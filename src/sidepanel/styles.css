@@ -126,3 +126,34 @@ progress::-moz-progress-bar { background: var(--brand); border-radius: 999px; }
   margin: 8px 0 0;
 }
 footer { text-align: center; margin-top: 12px; font-size: 11px; }
+
+.filter-card {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px 11px;
+  margin: 6px 0 10px;
+}
+.badge-edited {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+.badge-completed {
+  display: inline-block;
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+details summary {
+  user-select: none;
+  outline: none;
+}
+

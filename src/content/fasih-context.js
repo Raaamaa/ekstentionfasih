@@ -1,5 +1,7 @@
-// Content script: deteksi konteks halaman + ambil XSRF token dari cookie.
-// Berjalan di https://fasih-sm.bps.go.id/app/* — tidak memanggil API, hanya membaca.
+// content/fasih-context.js
+// Berjalan di context https://fasih-sm.bps.go.id/app/*
+// Merekam konteks halaman, XSRF token, serta menyerap filter aktif dari fasih-interceptor.
+
 (function () {
   function parseDataUrl(url) {
     const m = url.match(/\/app\/surveys\/([^/]+)\/([^/]+)\/data/);
@@ -13,7 +15,7 @@
     const parts = (document.cookie || '').split(';').map((s) => s.trim());
     for (const p of parts) {
       if (p.startsWith('XSRF-TOKEN=')) {
-        try { return decodeURIComponent(p.slice('XSRF-TOKEN='.length)); } catch (e) { return p.slice('XSRF-TOKEN='.length); }
+        try { return decodeURIComponent(p.slice('XSRF-TOKEN='.length)); } catch (_) { return p.slice('XSRF-TOKEN='.length); }
       }
     }
     return '';
@@ -29,8 +31,38 @@
     try {
       chrome.runtime.sendMessage({ type: 'FASIH_CONTEXT', payload: ctx });
       chrome.storage.local.set({ fasihContext: { ...ctx, at: Date.now() } });
-    } catch (e) { /* extension context invalidated */ }
+    } catch (_) { /* extension context invalidated */ }
   }
+
+  // Fallback: pastikan interceptor termuat ke main world jika belum terdaftar via manifest
+  try {
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('content/fasih-interceptor.js');
+    script.onload = () => script.remove();
+    (document.head || document.documentElement).appendChild(script);
+  } catch (_) {}
+
+  // Dengarkan pesan tangkapan filter dari main world
+  window.addEventListener('message', (event) => {
+    if (event.source !== window || !event.data) return;
+    if (event.data.type === 'FASIH_CAPTURED_FILTER') {
+      const payload = event.data.payload;
+      try {
+        chrome.storage.local.set({ fasihActiveFilter: payload });
+        chrome.runtime.sendMessage({ type: 'FASIH_FILTER_UPDATED', payload });
+      } catch (_) {}
+    }
+  });
+
+  // Dengarkan pesan dari sidepanel untuk memicu reload tabel jika filter belum tertangkap
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg && msg.type === 'FASIH_TRIGGER_TABLE_RELOAD') {
+      window.dispatchEvent(new CustomEvent('FASIH_REQUEST_REFRESH_FILTER'));
+      report();
+      sendResponse({ ok: true });
+      return true;
+    }
+  });
 
   report();
   let last = location.href;
