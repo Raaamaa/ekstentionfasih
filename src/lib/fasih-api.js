@@ -227,8 +227,9 @@ export function shouldRevokeRow(row) {
 }
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-export async function humanDelay(minMs = 800, maxMs = 1800) {
-  await sleep(minMs + Math.random() * Math.max(0, maxMs - minMs));
+export async function humanDelay(minMs = 1200, maxMs = 2400) {
+  const jitter = Math.random() * Math.max(0, maxMs - minMs);
+  await sleep(minMs + jitter);
 }
 
 export async function withRetry(fn, { tries = 3, baseMs = 800, rateLimitWaitMs = 30000 } = {}) {

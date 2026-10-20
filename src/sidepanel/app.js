@@ -175,7 +175,7 @@ async function runApprove({ resume = false } = {}) {
   const dryRun = $('dryRun').checked;
   const onlyEdited = $('onlyEdited').checked;
   const includeRevoked = $('includeRevoked').checked;
-  const delayMs = Math.max(300, Number($('delayMs').value) || 1200);
+  const delayMs = Math.max(500, Number($('delayMs').value) || 1500);
   const batchLimit = Number($('batchLimit').value) || 0;
   const searchValue = $('search').value.trim();
 
@@ -349,7 +349,19 @@ async function runApprove({ resume = false } = {}) {
               break;
             }
           }
-          await humanDelay(delayMs - 300 > 300 ? delayMs - 300 : 300, delayMs + 600);
+
+          // Anti-bot Human-Like Pacing:
+          // 1. Random jitter fluktuatif di sekitar delay pilihan user
+          const minJitter = Math.max(700, Math.round(delayMs * 0.85));
+          const maxJitter = Math.round(delayMs * 1.35);
+          await humanDelay(minJitter, maxJitter);
+
+          // 2. Cooldown berkala: Setiap 12 data, beri jeda santai 3.5 - 5.5 dtk seperti ritme manusia
+          if (cp.counts.approved > 0 && cp.counts.approved % 12 === 0 && !pauseReq && !stopReq) {
+            const restTime = Number((3.2 + Math.random() * 2.3).toFixed(1));
+            log(`[ritme manusia] jeda istirahat sejenak ${restTime} dtk…`);
+            await sleep(restTime * 1000);
+          }
         }
 
         cp.doneIds = [...done];
