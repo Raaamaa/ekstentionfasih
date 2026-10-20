@@ -98,7 +98,12 @@ $('btnCheckData').addEventListener('click', async () => {
       return;
     }
 
-    const searchValue = $('search').value.trim();
+    const userSearch = $('search').value.trim();
+    const activeSearch = activeFilter.search?.value ? String(activeFilter.search.value).trim() : '';
+    const searchValue = userSearch || activeSearch;
+    if (!userSearch && activeSearch) {
+      log(`[filter] Menggunakan kata kunci pencarian Web Fasih: "${activeSearch}"`);
+    }
     const onlyEdited = $('onlyEdited').checked;
     const body = buildListBodyFromActiveFilter({
       assignmentExtraParam: activeFilter.extraParam,
@@ -163,7 +168,12 @@ async function runTestSingle() {
   const dryRun = $('dryRun').checked;
   const onlyEdited = $('onlyEdited').checked;
   const includeRevoked = $('includeRevoked').checked;
-  const searchValue = $('search').value.trim();
+  const userSearch = $('search').value.trim();
+  const activeSearch = activeFilter.search?.value ? String(activeFilter.search.value).trim() : '';
+  const searchValue = userSearch || activeSearch;
+  if (!userSearch && activeSearch) {
+    log(`[filter] Menggunakan kata kunci pencarian Web Fasih: "${activeSearch}"`);
+  }
 
   log('🧪 Mencari 1 data pertama yang berstatus "Edited by Admin"…');
   let start = 0;
@@ -240,7 +250,7 @@ async function runApprove({ resume = false } = {}) {
   const includeRevoked = $('includeRevoked').checked;
   const delayMs = Math.max(500, Number($('delayMs').value) || 1500);
   const batchLimit = Number($('batchLimit').value) || 0;
-  const searchValue = $('search').value.trim();
+  const userSearch = $('search').value.trim();
 
   let cp;
   if (resume) {
@@ -256,6 +266,12 @@ async function runApprove({ resume = false } = {}) {
     if (!activeFilter || !activeFilter.extraParam) {
       log('Filter Web belum terdeteksi. Buka halaman Data Fasih lalu pilih filter wilayah/status.');
       return;
+    }
+
+    const activeSearch = activeFilter.search?.value ? String(activeFilter.search.value).trim() : '';
+    const searchValue = userSearch || activeSearch;
+    if (!userSearch && activeSearch) {
+      log(`[filter] Menggunakan kata kunci pencarian Web Fasih: "${activeSearch}"`);
     }
 
     const probeBody = buildListBodyFromActiveFilter({
@@ -355,6 +371,8 @@ async function runApprove({ resume = false } = {}) {
       const rows = list.searchData ?? [];
       if (!rows.length) { log(`Halaman start=${cp.nextStart} kosong — proses selesai.`); break; }
 
+      let newlyApprovedInPage = 0;
+
       for (const row of rows) {
         if (pauseReq || stopReq) break;
         const id = row.id;
@@ -388,6 +406,7 @@ async function runApprove({ resume = false } = {}) {
             if (res?.success === false) throw new Error(res.message || 'SERVER_REJECTED');
             consecFail = 0;
             cp.counts.approved += 1;
+            newlyApprovedInPage += 1;
             cp.results.push({ id, status: 'approved', reason: gate.reason });
             done.add(id);
             await appendLog({ action: 'approve', status: 'approved', detail: `${label} (${alias} ➔ Completed)`, url: ctx.url });
@@ -431,7 +450,34 @@ async function runApprove({ resume = false } = {}) {
         setProgress(processed(), cp.totalHit, `✓${cp.counts.approved} ⏭${cp.counts.skipped} ✗${cp.counts.failed}${cp.opts.dryRun ? ` (dry ${cp.counts.dryrun})` : ''}`);
       }
 
-      cp.nextStart += PAGE_LEN;
+      // Pagination Adjustment (Anti Mutating Pagination Trap):
+      if (cp.opts.dryRun) {
+        // Pada simulasi/dry-run, data tidak berubah status di server -> majukan offset normal
+        cp.nextStart += rows.length;
+      } else {
+        // Pada eksekusi nyata: data yang berhasil di-approve keluar dari filter "Edited by Admin"
+        // Hanya data yang TETAP berada di filter (misal: di-skip atau gagal) yang menggeser offset
+        const unapprovedInPage = rows.length - newlyApprovedInPage;
+        cp.nextStart += unapprovedInPage;
+
+        // Sinkronisasi totalHit terbaru dari respons server
+        if (list.totalHit != null) {
+          cp.totalHit = list.totalHit;
+        }
+
+        // Safety guard: jika 2x berturut-turut halaman tidak menghasilkan item baru
+        const newItemsInPage = rows.filter((r) => !done.has(r.id)).length;
+        if (newItemsInPage === 0 && newlyApprovedInPage === 0) {
+          cp.emptyStreak = (cp.emptyStreak || 0) + 1;
+          if (cp.emptyStreak >= 2) {
+            log('Semua data yang memenuhi syarat telah selesai diproses.');
+            break;
+          }
+        } else {
+          cp.emptyStreak = 0;
+        }
+      }
+
       cp.doneIds = [...done];
       await setStore({ fasihCheckpoint: cp });
 

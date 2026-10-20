@@ -30,7 +30,22 @@ export async function fasihFetch(path, { xsrf = '', init = {} } = {}) {
     throw new Error(`FASIH_429_RETRY_AFTER_${ra}: ${path}`);
   }
   if (!res.ok) throw new Error(`FASIH_${res.status}: ${path}`);
-  return res.json();
+
+  // Deteksi dini redirect sesi login habis (respons 200 berformat HTML atau diarahkan ke login/sso)
+  const ct = (res.headers.get('Content-Type') || '').toLowerCase();
+  const finalUrl = String(res.url || '');
+  if (ct.includes('text/html') || finalUrl.includes('/login') || finalUrl.includes('/sso') || finalUrl.includes('/auth')) {
+    throw new Error('SESSION_EXPIRED: Sesi login BPS habis (server mengembalikan halaman login HTML). Silakan login ulang di tab Web Fasih.');
+  }
+
+  try {
+    return await res.json();
+  } catch (parseErr) {
+    if (String(parseErr?.message || '').includes('Unexpected token')) {
+      throw new Error('SESSION_EXPIRED: Respons server bukan format JSON (kemungkinan sesi login habis). Silakan login ulang di tab Web Fasih.');
+    }
+    throw parseErr;
+  }
 }
 
 export async function getRegionMetadata(groupId, xsrf) {
